@@ -77,6 +77,20 @@ enum AccessLevel {
   COMMENT
 }
 
+enum RegionProvider {
+  AWS
+  GCP
+  AZURE
+  OTHER
+}
+
+enum BudgetScope {
+  ORG_WIDE
+  PROJECT
+  ENDPOINT
+  AGENT
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String?
@@ -100,6 +114,7 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   projects      Project[]
+  workspaces    Workspace[]
   memberships   OrganizationMembership[]
   subscriptions Subscription[]
   apiKeys       ApiKey[]
@@ -124,6 +139,31 @@ model Organization {
   productEvents ProductEvent[]
   comments      Comment[]
   shareLinks    ShareLink[]
+  orgPolicies   OrgPolicy[]
+  scalingPolicies ScalingPolicy[]
+  platformAlerts PlatformAlert[]
+  budgets       Budget[]
+  costProfiles  OrgCostProfile[]
+  controlPlaneSuggestions ControlPlaneSuggestion[]
+  changeRequests ChangeRequest[]
+  slaConfigs    SlaConfig[]
+  slaViolations SlaViolation[]
+  referralsFrom Referral[] @relation("ReferralsFrom")
+  referralsTo   Referral[] @relation("ReferralsTo")
+}
+
+model Region {
+  id            String @id @default(cuid())
+  name          String
+  code          String @unique
+  cloudProvider RegionProvider
+  isActive      Boolean @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  endpoints     Endpoint[]
+  vectorStores  VectorStore[]
+  knowledgeBases KnowledgeBase[]
+  providerConfigs LlmProviderConfig[]
 }
 
 model RolePolicy {
@@ -154,12 +194,39 @@ model Subscription {
   id                 String     @id @default(cuid())
   organization       Organization @relation(fields: [organizationId], references: [id])
   organizationId     String
-  externalCustomerId String?
   planTier           PlanTier
+  plan               Plan?       @relation(fields: [planId], references: [id])
+  planId             String?
+  externalCustomerId String?
   status             String
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
+  trialEndDate       DateTime?
+  addOns             Json?
   invoices           Invoice[]
+}
+
+model Plan {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  name             String
+  description      String?
+  basePriceCents   Int
+  billingPeriod    String   // MONTHLY, YEARLY
+  limits           Json
+  createdAt        DateTime @default(now())
+  addOns           AddOn[]
+}
+
+model AddOn {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  name             String
+  description      String?
+  pricePerUnitCents Int
+  unit             String   // TOKEN, ENDPOINT, WORKSPACE, PROJECT, USER
+  config           Json?
+  createdAt        DateTime @default(now())
 }
 
 model Invoice {
@@ -182,10 +249,31 @@ model ApiKey {
   auditLogs      AuditLog[]
 }
 
+model Workspace {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  name           String
+  slug           String
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  projects       Project[]
+  datasets       Dataset[]
+  models         Model[]
+  endpoints      Endpoint[]
+  knowledgeBases KnowledgeBase[]
+  workflows      Workflow[]
+  changeRequests ChangeRequest[]
+  @@unique([organizationId, slug])
+}
+
 model Project {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
+  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
+  workspaceId    String?
   name           String
   slug           String   @unique
   description    String?
@@ -219,6 +307,8 @@ model Dataset {
   id                 String        @id @default(cuid())
   organization       Organization  @relation(fields: [organizationId], references: [id])
   organizationId     String
+  workspace          Workspace?    @relation(fields: [workspaceId], references: [id])
+  workspaceId        String?
   dataSource         DataSource?   @relation(fields: [dataSourceId], references: [id])
   dataSourceId       String?
   project            Project?      @relation(fields: [projectId], references: [id])
@@ -262,6 +352,8 @@ model VectorStore {
   organizationId String
   project        Project?     @relation(fields: [projectId], references: [id])
   projectId      String?
+  region         Region?      @relation(fields: [regionId], references: [id])
+  regionId       String?
   name           String
   backendType    String
   config         Json
@@ -295,6 +387,8 @@ model Model {
   organizationId String
   project       Project?    @relation(fields: [projectId], references: [id])
   projectId     String?
+  workspace     Workspace?  @relation(fields: [workspaceId], references: [id])
+  workspaceId   String?
   name          String
   type          ModelType
   taskDescription String?
@@ -333,10 +427,15 @@ model Endpoint {
   organizationId String
   project        Project?    @relation(fields: [projectId], references: [id])
   projectId      String?
+  workspace      Workspace?  @relation(fields: [workspaceId], references: [id])
+  workspaceId    String?
+  region         Region?     @relation(fields: [regionId], references: [id])
+  regionId       String?
   name           String
   type           EndpointType
   publicSlug     String   @unique
   trafficConfig  Json?
+  fallbackConfig Json?
   strategy       String?    // SIMPLE, TRAFFIC_SPLIT, CANARY, BANDIT
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -390,6 +489,8 @@ model LlmProviderConfig {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
+  region         Region?      @relation(fields: [regionId], references: [id])
+  regionId       String?
   providerName   ProviderName
   baseUrl        String?
   apiKeyRef      String
@@ -409,6 +510,7 @@ model LlmAgent {
   config         Json
   knowledgeBase  KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id])
   knowledgeBaseId String?
+  isInternal     Boolean @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   testSuites     AgentTestSuite[]
@@ -421,6 +523,8 @@ model KnowledgeBase {
   organizationId String
   project        Project?     @relation(fields: [projectId], references: [id])
   projectId      String?
+  region         Region?      @relation(fields: [regionId], references: [id])
+  regionId       String?
   name           String
   vectorCollection VectorCollection @relation(fields: [vectorCollectionId], references: [id])
   vectorCollectionId String
@@ -523,6 +627,8 @@ model Workflow {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
+  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
+  workspaceId    String?
   project        Project?     @relation(fields: [projectId], references: [id])
   projectId      String?
   name           String
@@ -561,6 +667,9 @@ model WorkflowRun {
   workflow   Workflow       @relation(fields: [workflowId], references: [id])
   workflowId String
   status     WorkflowStatus
+  attempts   Int       @default(0)
+  lastError  String?
+  errorCategory String?
   startedAt  DateTime @default(now())
   finishedAt DateTime?
   nodeRuns   WorkflowNodeRun[]
@@ -640,7 +749,7 @@ model Secret {
   provider       String       // INTERNAL, AWS_SECRETS_MANAGER, HASHICORP_VAULT
   externalRef    String?
   encryptedValue String?
-  key            String?      // e.g., secret key name
+  key            String?
   createdAt      DateTime @default(now())
 }
 
@@ -652,6 +761,14 @@ model DataPolicy {
   description    String?
   appliesTo      String       // DataSource, Dataset, KnowledgeBase
   rules          Json
+  createdAt      DateTime @default(now())
+}
+
+model OrgPolicy {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  residency      Json         // e.g., mustStayInRegion, allowedRegions
   createdAt      DateTime @default(now())
 }
 
@@ -723,4 +840,131 @@ model OnboardingState {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   @@unique([userId, organizationId])
+}
+
+model OrgCostProfile {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  costModelRefs  Json
+  discounts      Json?
+  createdAt      DateTime @default(now())
+}
+
+model CostModel {
+  id             String   @id @default(cuid())
+  name           String
+  type           String   // LLM_TOKEN, ENDPOINT_REQUEST, STORAGE_GB_MONTH, JOB_HOUR, VECTOR_OP
+  config         Json
+  effectiveFrom  DateTime
+  effectiveTo    DateTime?
+  createdAt      DateTime @default(now())
+}
+
+model Budget {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  scope          BudgetScope
+  scopeId        String?
+  period         String   // MONTHLY, QUARTERLY
+  limitAmount    Float
+  currency       String
+  alertThresholds Json
+  createdAt      DateTime @default(now())
+  alerts         BudgetAlert[]
+}
+
+model BudgetAlert {
+  id         String   @id @default(cuid())
+  budget     Budget   @relation(fields: [budgetId], references: [id])
+  budgetId   String
+  threshold  Float
+  triggeredAt DateTime @default(now())
+}
+
+model ScalingPolicy {
+  id             String       @id @default(cuid())
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
+  targetType     String   // WORKER, ENDPOINT_POOL
+  targetId       String?
+  minInstances   Int
+  maxInstances   Int
+  strategy       String   // QUEUE_DEPTH, CPU_UTIL, CUSTOM
+  config         Json
+  createdAt      DateTime @default(now())
+}
+
+model PlatformAlert {
+  id             String       @id @default(cuid())
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
+  type           String   // STUCK_JOB, HIGH_FAILURE_RATE, QUEUE_BACKLOG
+  severity       String
+  resourceType   String
+  resourceId     String
+  status         String   // OPEN, ACKED, RESOLVED
+  detectedAt     DateTime @default(now())
+  metadata       Json?
+}
+
+model ControlPlaneSuggestion {
+  id             String       @id @default(cuid())
+  agentType      String       // OPS, QUALITY, GOVERNANCE
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
+  projectId      String?
+  targetType     String
+  targetId       String?
+  suggestionText String
+  impactEstimate Json?
+  status         String   // OPEN, APPLIED, DISMISSED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ChangeRequest {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
+  workspaceId    String?
+  submittedByUserId String
+  type           String   // MODEL_PROMOTION, ENDPOINT_CONFIG_CHANGE, POLICY_CHANGE, GUARDRAIL_CHANGE, BUDGET_CHANGE, PLUGIN_INSTALL
+  payload        Json
+  status         String   // PENDING, APPROVED, REJECTED, APPLIED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model SlaConfig {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  targetType     String   // ENDPOINT, WORKSPACE
+  targetId       String
+  objectives     Json      // uptime, latency, errorRate targets
+  createdAt      DateTime @default(now())
+  violations     SlaViolation[]
+}
+
+model SlaViolation {
+  id             String     @id @default(cuid())
+  slaConfig      SlaConfig  @relation(fields: [slaConfigId], references: [id])
+  slaConfigId    String
+  occurredAt     DateTime @default(now())
+  details        Json
+  status         String   // OPEN, ACKED, RESOLVED
+}
+
+model Referral {
+  id             String   @id @default(cuid())
+  referrerOrg    Organization @relation("ReferralsFrom", fields: [referrerOrgId], references: [id])
+  referrerOrgId  String
+  refereeOrg     Organization? @relation("ReferralsTo", fields: [refereeOrgId], references: [id])
+  refereeOrgId   String?
+  referralCode   String   @unique
+  rewardStatus   String
+  createdAt      DateTime @default(now())
 }
