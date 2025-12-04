@@ -12,7 +12,8 @@ import {
   Cloud,
   Bot,
   Bolt,
-  Shield
+  Shield,
+  Activity
 } from "lucide-react";
 
 const sections: { title: string; items: { name: string; href: string; icon: ReactNode }[] }[] = [
@@ -58,7 +59,9 @@ const sections: { title: string; items: { name: string; href: string; icon: Reac
       { name: "Templates", href: "/templates", icon: <BookOpen className="w-4 h-4" /> },
       { name: "Plugins", href: "/plugins", icon: <Layers className="w-4 h-4" /> },
       { name: "Data Policies", href: "/data-policies", icon: <Shield className="w-4 h-4" /> },
-      { name: "Usage & Cost", href: "/usage", icon: <Bolt className="w-4 h-4" /> }
+      { name: "Observability", href: "/observability", icon: <Activity className="w-4 h-4" /> },
+      { name: "Usage & Cost", href: "/usage", icon: <Bolt className="w-4 h-4" /> },
+      { name: "Product Analytics", href: "/admin/analytics", icon: <Bolt className="w-4 h-4" /> }
     ]
   },
   {

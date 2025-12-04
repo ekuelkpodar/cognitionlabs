@@ -12,3 +12,8 @@ export * from "./config";
 export * from "./copilots";
 export * from "./quota";
 export * from "./dataPolicies";
+export * from "./cache";
+export * from "./rateLimit";
+export * from "./monitoring";
+export * from "./tenant";
+export * from "./registry";

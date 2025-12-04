@@ -9,6 +9,7 @@ Abacus.ai–style AI/ML + LLM Ops platform scaffold built as a modern SaaS web a
 - `packages/shared` – Shared Zod schemas and types for validation between API and worker.
 - `packages/services` – Service-layer modules (RBAC, audit, projects, guardrails, experiments, usage, templates, plugins).
 - Governance & quotas: new API routes and services for guardrails, templates, plugins, data policies, usage metrics, and quota checks; worker gains agent test processor and canary orchestration loop placeholder.
+- Observability & reliability: health endpoint, observability dashboard, monitoring stubs, Redis cache/rate limiter abstractions, tenant context helpers, plugin registry, comments/shareable collaboration primitives, product analytics events.
 
 ## Getting Started
 1. Install deps: `npm install`

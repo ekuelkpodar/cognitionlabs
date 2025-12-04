@@ -72,6 +72,11 @@ enum ProviderName {
   CUSTOM_HTTP
 }
 
+enum AccessLevel {
+  VIEW
+  COMMENT
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String?
@@ -82,6 +87,8 @@ model User {
   memberships  OrganizationMembership[]
   apiKeys      ApiKey[]
   auditLogs    AuditLog[]
+  onboardingStates OnboardingState[]
+  comments     Comment[]
 }
 
 model Organization {
@@ -89,6 +96,7 @@ model Organization {
   name      String
   slug      String   @unique
   planTier  PlanTier @default(FREE)
+  logRetentionDays Int @default(30)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   projects      Project[]
@@ -113,6 +121,9 @@ model Organization {
   plugins       Plugin[]
   dataPolicies  DataPolicy[]
   usageMetrics  UsageMetric[]
+  productEvents ProductEvent[]
+  comments      Comment[]
+  shareLinks    ShareLink[]
 }
 
 model RolePolicy {
@@ -359,6 +370,8 @@ model InferenceLog {
   errorMessage    String?
   userFeedbackLabel String?
   createdAt       DateTime @default(now())
+  @@index([endpointId, createdAt])
+  @@index([modelVersionId, createdAt])
 }
 
 model DriftAlert {
@@ -607,11 +620,14 @@ model Plugin {
   id             String       @id @default(cuid())
   organization   Organization? @relation(fields: [organizationId], references: [id])
   organizationId String?
-  type           String       // WORKFLOW_NODE, ENDPOINT_DECORATOR, AGENT_TOOL
+  type           String       // DATA_CONNECTOR, WORKFLOW_NODE, LLM_TOOL, EVALUATION_METRIC, DASHBOARD_WIDGET
   name           String
   description    String?
+  icon           String?
   configSchema   Json?
-  codeLocation   String?
+  runtimeType    String       // INLINE_SCRIPT, REMOTE_HTTP, NPM_PACKAGE_STUB
+  codeLocation   String?      // URL or package path
+  inlineCode     String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -623,6 +639,8 @@ model Secret {
   name           String
   provider       String       // INTERNAL, AWS_SECRETS_MANAGER, HASHICORP_VAULT
   externalRef    String?
+  encryptedValue String?
+  key            String?      // e.g., secret key name
   createdAt      DateTime @default(now())
 }
 
@@ -649,4 +667,60 @@ model UsageMetric {
   value          Float
   createdAt      DateTime @default(now())
   @@unique([organizationId, metricName, periodStart, periodEnd])
+}
+
+model ProductEvent {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id])
+  eventName      String
+  properties     Json
+  createdAt      DateTime @default(now())
+  @@index([organizationId, eventName, createdAt])
+}
+
+model Comment {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id])
+  resourceType   String
+  resourceId     String
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id])
+  body           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([organizationId, resourceType, resourceId, createdAt])
+}
+
+model ShareLink {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id])
+  resourceType   String
+  resourceId     String
+  token          String       @unique
+  expiresAt      DateTime?
+  accessLevel    AccessLevel
+  createdAt      DateTime @default(now())
+}
+
+model OnboardingState {
+  id             String       @id @default(cuid())
+  user           User         @relation(fields: [userId], references: [id])
+  userId         String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  hasSeenIntro   Boolean      @default(false)
+  completedFirstProject Boolean @default(false)
+  completedFirstEndpoint Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@unique([userId, organizationId])
 }
