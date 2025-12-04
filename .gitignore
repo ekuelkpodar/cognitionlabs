@@ -1,0 +1,9 @@
+node_modules
+.next
+.env
+.env.local
+pnpm-lock.yaml
+yarn.lock
+dist
+prisma/generated
+.DS_Store

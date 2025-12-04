@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0b1021;
+  --foreground: #f5f7ff;
+}
+
+body {
+  background: radial-gradient(circle at 10% 20%, rgba(66,104,228,0.35), rgba(66,104,228,0)),
+    radial-gradient(circle at 80% 0%, rgba(93,228,255,0.2), rgba(93,228,255,0)),
+    #0b1021;
+  color: var(--foreground);
+  min-height: 100vh;
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #233f96;
+  border-radius: 8px;
+}

@@ -1,0 +1,36 @@
+{
+  "name": "cognitionlabs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Abacus.ai-style AI/ML + LLM Ops platform monorepo",
+  "type": "module",
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "dev:worker": "npm --workspace apps/worker run dev",
+    "lint": "npm run lint:web",
+    "lint:web": "npm --workspace apps/web run lint",
+    "prisma:generate": "npm --workspace packages/db run generate",
+    "prisma:migrate": "npm --workspace packages/db run migrate",
+    "seed": "npm --workspace packages/db run seed",
+    "build": "npm --workspaces run build",
+    "dev": "npm run dev:web"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ekuelkpodar/cognitionlabs.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ekuelkpodar/cognitionlabs/issues"
+  },
+  "homepage": "https://github.com/ekuelkpodar/cognitionlabs#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.3"
+  }
+}
