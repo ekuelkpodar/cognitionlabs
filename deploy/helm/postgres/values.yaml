@@ -1,0 +1,5 @@
+primary:
+  persistence:
+    enabled: false
+postgresqlPassword: password
+database: cognitionlabs

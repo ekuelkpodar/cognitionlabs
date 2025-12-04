@@ -1,0 +1,4 @@
+resources:
+  - ../helm/web/deployment.yaml
+  - ../helm/web/service.yaml
+  - ../helm/worker/deployment.yaml

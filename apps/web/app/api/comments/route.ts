@@ -17,6 +17,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const body = await request.json();
   const { orgId, userId } = await resolveAuthContext();
+  // Basic rate limit per org to avoid spam
+  // We reuse redis-backed rate limiter from services (lightweight import)
+  const { RateLimiter } = await import("@cognitionlabs/services");
+  const limiter = new RateLimiter(process.env.REDIS_URL);
+  const limit = await limiter.check(`org:${orgId}:comments`, 120, 60);
+  if (!limit.allowed) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   const comment = await prisma.comment.create({
     data: {
       organizationId: orgId,

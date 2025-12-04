@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { guardrailSchema } from "@cognitionlabs/shared";
 import { resolveAuthContext } from "@/lib/auth-context";
+import { RateLimiter } from "@cognitionlabs/services";
+
+const rateLimiter = new RateLimiter(process.env.REDIS_URL);
 
 export async function GET() {
   const { orgId } = await resolveAuthContext();
@@ -12,6 +15,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const body = guardrailSchema.parse(await request.json());
   const { orgId, userId } = await resolveAuthContext();
+   const limit = await rateLimiter.check(`org:${orgId}:guardrails:create`, 30, 60);
+   if (!limit.allowed) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   const policy = await prisma.llmGuardrailPolicy.create({ data: { ...body, organizationId: orgId } });
   await prisma.auditLog.create({
     data: {
@@ -30,6 +35,8 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const body = await request.json();
   const { orgId, userId } = await resolveAuthContext();
+  const limit = await rateLimiter.check(`org:${orgId}:guardrails:update`, 60, 60);
+  if (!limit.allowed) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   const policy = await prisma.llmGuardrailPolicy.update({ where: { id: body.id }, data: body });
   await prisma.auditLog.create({
     data: {
