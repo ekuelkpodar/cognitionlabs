@@ -802,13 +802,19 @@ model Comment {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
+  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
+  workspaceId    String?
   projectId      String?
   project        Project?     @relation(fields: [projectId], references: [id])
+  aiViewId       String?
+  aiBlockId      String?
   resourceType   String
   resourceId     String
   authorId       String
   author         User         @relation(fields: [authorId], references: [id])
   body           String
+  parentCommentId String?
+  resolvedAt     DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   @@index([organizationId, resourceType, resourceId, createdAt])
@@ -967,4 +973,90 @@ model Referral {
   referralCode   String   @unique
   rewardStatus   String
   createdAt      DateTime @default(now())
+}
+
+model AiView {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id])
+  workspaceId    String
+  project        Project?     @relation(fields: [projectId], references: [id])
+  projectId      String?
+  name           String
+  slug           String
+  description    String?
+  layoutType     String       // GRID, CANVAS, NOTEBOOK
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  viewBlocks     AiViewBlock[]
+}
+
+model AiBlock {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  project        Project?     @relation(fields: [projectId], references: [id])
+  projectId      String?
+  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
+  workspaceId    String?
+  type           String       // CHART, TABLE, METRIC, FORM, TEXT, NOTEBOOK_CELL, CHAT_WIDGET, MODEL_PANEL, AGENT_PANEL, IFRAME, CUSTOM_COMPONENT
+  title          String
+  config         Json
+  layout         Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  viewBlocks     AiViewBlock[]
+  notebookRuns   NotebookCellRun[]
+}
+
+model AiViewBlock {
+  id        String   @id @default(cuid())
+  aiView    AiView   @relation(fields: [aiViewId], references: [id])
+  aiViewId  String
+  aiBlock   AiBlock  @relation(fields: [aiBlockId], references: [id])
+  aiBlockId String
+  position  Json     // row, col, width, height, zIndex
+}
+
+model NotebookCellRun {
+  id               String   @id @default(cuid())
+  aiBlock          AiBlock  @relation(fields: [aiBlockId], references: [id])
+  aiBlockId        String
+  executedByUserId String
+  inputSnapshot    Json
+  outputSnapshot   Json?
+  status           String   // RUNNING, SUCCESS, FAILED
+  startedAt        DateTime @default(now())
+  finishedAt       DateTime?
+}
+
+model AiApp {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id])
+  workspaceId    String
+  project        Project?     @relation(fields: [projectId], references: [id])
+  projectId      String?
+  name           String
+  slug           String   @unique
+  description    String?
+  isPublic       Boolean  @default(false)
+  config         Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AiAppTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  category    String   // SUPPORT, ANALYTICS, FORECASTING, QA, GOVERNANCE
+  config      Json     // predefined views/blocks/workflows bindings
+  visibility  String   // GLOBAL, ORG_LOCAL
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

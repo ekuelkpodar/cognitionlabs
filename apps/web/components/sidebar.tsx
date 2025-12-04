@@ -48,7 +48,8 @@ const sections: { title: string; items: { name: string; href: string; icon: Reac
       { name: "Models", href: "/models", icon: <Brain className="w-4 h-4" /> },
       { name: "Experiments", href: "/experiments", icon: <Workflow className="w-4 h-4" /> },
       { name: "Pipelines & Workflows", href: "/workflows", icon: <Workflow className="w-4 h-4" /> },
-      { name: "Endpoints", href: "/endpoints", icon: <Cloud className="w-4 h-4" /> }
+      { name: "Endpoints", href: "/endpoints", icon: <Cloud className="w-4 h-4" /> },
+      { name: "Apps", href: "/apps", icon: <Layers className="w-4 h-4" /> }
     ]
   },
   {

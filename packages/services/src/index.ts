@@ -21,3 +21,8 @@ export * from "./cost";
 export * from "./controlPlane";
 export * from "./sla";
 export * from "./growth";
+export * from "./ai/blocks";
+export * from "./ai/views";
+export * from "./ai/notebook";
+export * from "./ai/apps";
+export * from "./ai/uiCopilot";
