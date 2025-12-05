@@ -7,1209 +7,295 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum PlanTier { FREE PRO ENTERPRISE }
-enum MembershipRole { OWNER ADMIN MEMBER VIEWER CUSTOM }
-enum DataSourceType { FILE_UPLOAD POSTGRES SNOWFLAKE BIGQUERY S3 OTHER }
-enum ModelType { LLM CLASSIFICATION REGRESSION FORECASTING RANKING ANOMALY VISION }
-enum ModelVersionStatus { DRAFT TRAINING STAGING PRODUCTION FAILED }
-enum EndpointType { LLM_AGENT ML_MODEL }
-enum WorkflowStatus { PENDING RUNNING SUCCESS FAILED }
-enum DocumentSourceType { UPLOAD URL MANUAL }
-enum ProviderName { OPENAI ANTHROPIC CUSTOM_HTTP }
-enum AccessLevel { VIEW COMMENT }
-enum RegionProvider { AWS GCP AZURE OTHER }
-enum BudgetScope { ORG_WIDE PROJECT ENDPOINT AGENT }
+enum Difficulty { BEGINNER INTERMEDIATE ADVANCED }
+enum LessonContentType { MARKDOWN VIDEO SLIDES INTERACTIVE EXTERNAL_LINK }
+enum LabType { GUIDED OPEN_ENDED CHALLENGE }
+enum LabSessionStatus { NOT_STARTED ACTIVE COMPLETED EXPIRED ABANDONED }
+enum ChallengeType { QUIZ CODING MODEL_METRIC LLM_PROMPTING DESIGN_DOCUMENT }
+enum ChallengeStatus { IN_PROGRESS SUBMITTED GRADED }
+enum ProgressStatus { NOT_STARTED IN_PROGRESS COMPLETED }
+enum EnrollmentStatus { NOT_STARTED IN_PROGRESS COMPLETED DROPPED }
+enum CertificationLevel { FOUNDATION PRACTITIONER EXPERT }
+enum ProgramStatus { NOT_STARTED IN_PROGRESS COMPLETED }
 
-enum GalleryVisibility { PRIVATE ORG PUBLIC UNLISTED }
-enum GalleryItemType { APP TEMPLATE WORKFLOW AGENT PLUGIN VIEW }
-enum ActivityActorType { USER ORG }
-enum ActivityType { PUBLISHED_ITEM UPDATED_ITEM INSTALLED_ITEM REACHED_MILESTONE NEW_TEMPLATE NEW_RELEASE }
-
-model User {
-  id           String   @id @default(cuid())
-  name         String?
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  memberships  OrganizationMembership[]
-  apiKeys      ApiKey[]
-  auditLogs    AuditLog[]
-  onboardingStates OnboardingState[]
-  comments     Comment[]
-  profiles     UserProfile?
-  follows      UserFollow[] @relation("Follower")
-  followers    UserFollow[] @relation("Followed")
-  galleryRatings GalleryRating[]
-  galleryReviews GalleryReview[]
-  galleryItems GalleryItem[] @relation("GalleryCreator")
-  activityEvents ActivityEvent[]
-  discussionComments DiscussionComment[]
-}
-
-model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  planTier  PlanTier @default(FREE)
-  logRetentionDays Int @default(30)
-  brandingConfig Json?
-  subdomain String?
-  isWhiteLabelCustomer Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  projects      Project[]
-  workspaces    Workspace[]
-  memberships   OrganizationMembership[]
-  subscriptions Subscription[]
-  apiKeys       ApiKey[]
-  rolePolicies  RolePolicy[]
-  dataSources   DataSource[]
-  datasets      Dataset[]
-  featureTables FeatureTable[]
-  vectorStores  VectorStore[]
-  models        Model[]
-  endpoints     Endpoint[]
-  providerConfigs LlmProviderConfig[]
-  agents        LlmAgent[]
-  knowledgeBases KnowledgeBase[]
-  workflows     Workflow[]
-  auditLogs     AuditLog[]
-  guardrailPolicies LlmGuardrailPolicy[]
-  secrets       Secret[]
-  templates     Template[]
-  plugins       Plugin[]
-  dataPolicies  DataPolicy[]
-  usageMetrics  UsageMetric[]
-  productEvents ProductEvent[]
-  comments      Comment[]
-  shareLinks    ShareLink[]
-  orgPolicies   OrgPolicy[]
-  scalingPolicies ScalingPolicy[]
-  platformAlerts PlatformAlert[]
-  budgets       Budget[]
-  costProfiles  OrgCostProfile[]
-  controlPlaneSuggestions ControlPlaneSuggestion[]
-  changeRequests ChangeRequest[]
-  slaConfigs    SlaConfig[]
-  slaViolations SlaViolation[]
-  referralsFrom Referral[] @relation("ReferralsFrom")
-  referralsTo   Referral[] @relation("ReferralsTo")
-  galleryItems  GalleryItem[]
-  galleryInstalls GalleryInstall[]
-  webhooks      Webhook[]
-  partnerOrgs   PartnerOrganization[]
-  abuseReports  AbuseReport[]
-  discussions   Discussion[]
-  reputationScores ReputationScore[]
-}
-
-model Region {
-  id            String @id @default(cuid())
-  name          String
-  code          String @unique
-  cloudProvider RegionProvider
-  isActive      Boolean @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  endpoints     Endpoint[]
-  vectorStores  VectorStore[]
-  knowledgeBases KnowledgeBase[]
-  providerConfigs LlmProviderConfig[]
-}
-
-model RolePolicy {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  name           String
-  capabilities   Json
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  memberships    OrganizationMembership[]
-}
-
-model OrganizationMembership {
-  id             String         @id @default(cuid())
-  user           User           @relation(fields: [userId], references: [id])
-  userId         String
-  organization   Organization   @relation(fields: [organizationId], references: [id])
-  organizationId String
-  role           MembershipRole
-  rolePolicy     RolePolicy?    @relation(fields: [rolePolicyId], references: [id])
-  rolePolicyId   String?
-  createdAt      DateTime       @default(now())
-  @@unique([userId, organizationId])
-}
-
-model Subscription {
-  id                 String     @id @default(cuid())
-  organization       Organization @relation(fields: [organizationId], references: [id])
-  organizationId     String
-  planTier           PlanTier
-  plan               Plan?       @relation(fields: [planId], references: [id])
-  planId             String?
-  externalCustomerId String?
-  status             String
-  currentPeriodStart DateTime?
-  currentPeriodEnd   DateTime?
-  trialEndDate       DateTime?
-  addOns             Json?
-  invoices           Invoice[]
-}
-
-model Plan {
+model Course {
   id               String   @id @default(cuid())
-  code             String   @unique
-  name             String
-  description      String?
-  basePriceCents   Int
-  billingPeriod    String
-  limits           Json
+  organizationId   String?
+  title            String
+  slug             String
+  shortDescription String?
+  longDescription  String?
+  difficulty       Difficulty
+  category         String
+  estimatedHours   Float?
+  prerequisites    Json?
+  isPublished      Boolean @default(false)
+  createdByUserId  String
   createdAt        DateTime @default(now())
-  addOns           AddOn[]
+  updatedAt        DateTime @updatedAt
+  modules          Module[]
+  learningPathCourses LearningPathCourse[]
+  skillTags        CourseSkillTag[]
+  enrollments      CourseEnrollment[]
+  progresses       CourseProgress[]
 }
 
-model AddOn {
-  id               String   @id @default(cuid())
-  code             String   @unique
-  name             String
-  description      String?
-  pricePerUnitCents Int
-  unit             String
-  config           Json?
-  createdAt        DateTime @default(now())
-}
-
-model Invoice {
-  id             String   @id @default(cuid())
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
-  subscriptionId String
-  amountCents    Int
-  status         String
-  issuedAt       DateTime @default(now())
-}
-
-model ApiKey {
-  id             String   @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  name           String
-  hashedKey      String
-  scopes         Json?
-  rateLimitOverrides Json?
-  createdAt      DateTime @default(now())
-  lastUsedAt     DateTime?
-  auditLogs      AuditLog[]
-}
-
-model Workspace {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  name           String
-  slug           String
-  description    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  projects       Project[]
-  datasets       Dataset[]
-  models         Model[]
-  endpoints      Endpoint[]
-  knowledgeBases KnowledgeBase[]
-  workflows      Workflow[]
-  changeRequests ChangeRequest[]
-  aiViews        AiView[]
-  aiApps         AiApp[]
-  @@unique([organizationId, slug])
-}
-
-model Project {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
-  workspaceId    String?
-  name           String
-  slug           String   @unique
-  description    String?
-  status         String   @default("ACTIVE")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  datasets       Dataset[]
-  models         Model[]
-  modelVersions  ModelVersion[]
-  endpoints      Endpoint[]
-  workflows      Workflow[]
-  agents         LlmAgent[]
-  knowledgeBases KnowledgeBase[]
-  experiments    Experiment[]
-  usageMetrics   UsageMetric[]
-}
-
-model DataSource {
-  id             String           @id @default(cuid())
-  organization   Organization     @relation(fields: [organizationId], references: [id])
-  organizationId String
-  name           String
-  type           DataSourceType
-  config         Json
-  createdAt      DateTime @default(now())
-  datasets       Dataset[]
-  dataPolicies   DataPolicy[]
-}
-
-model Dataset {
-  id                 String        @id @default(cuid())
-  organization       Organization  @relation(fields: [organizationId], references: [id])
-  organizationId     String
-  workspace          Workspace?    @relation(fields: [workspaceId], references: [id])
-  workspaceId        String?
-  dataSource         DataSource?   @relation(fields: [dataSourceId], references: [id])
-  dataSourceId       String?
-  project            Project?      @relation(fields: [projectId], references: [id])
-  projectId          String?
-  name               String
-  description        String?
-  schema             Json?
-  refreshScheduleCron String?
-  lastRefreshedAt    DateTime?
-  createdAt          DateTime @default(now())
-  featureTables      FeatureTable[]
-}
-
-model FeatureTable {
-  id                 String      @id @default(cuid())
-  organization       Organization @relation(fields: [organizationId], references: [id])
-  organizationId     String
-  project            Project?    @relation(fields: [projectId], references: [id])
-  projectId          String?
-  name               String
-  primaryKeyColumns  Json
-  schema             Json
-  createdAt          DateTime @default(now())
-  rows               FeatureRow[]
-  modelVersions      ModelVersion[]
-}
-
-model FeatureRow {
-  id             String       @id @default(cuid())
-  featureTable   FeatureTable @relation(fields: [featureTableId], references: [id])
-  featureTableId String
-  key            Json
-  featureValues  Json
-  eventTimestamp DateTime
-  createdAt      DateTime @default(now())
-}
-
-model VectorStore {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  project        Project?     @relation(fields: [projectId], references: [id])
-  projectId      String?
-  region         Region?      @relation(fields: [regionId], references: [id])
-  regionId       String?
-  name           String
-  backendType    String
-  config         Json
-  collections    VectorCollection[]
-}
-
-model VectorCollection {
-  id             String       @id @default(cuid())
-  vectorStore    VectorStore  @relation(fields: [vectorStoreId], references: [id])
-  vectorStoreId  String
-  name           String
-  dimension      Int
-  metadataSchema Json?
-  items          VectorItem[]
-  knowledgeBases KnowledgeBase[]
-}
-
-model VectorItem {
-  id           String           @id @default(cuid())
-  collection   VectorCollection @relation(fields: [collectionId], references: [id])
-  collectionId String
-  externalId   String
-  embedding    Float[]
-  metadata     Json
-  createdAt    DateTime @default(now())
-}
-
-model Model {
-  id            String      @id @default(cuid())
-  organization  Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  project       Project?    @relation(fields: [projectId], references: [id])
-  projectId     String?
-  workspace     Workspace?  @relation(fields: [workspaceId], references: [id])
-  workspaceId   String?
-  name          String
-  type          ModelType
-  taskDescription String?
-  createdAt     DateTime @default(now())
-  versions      ModelVersion[]
-  endpoints     EndpointModelBinding[]
-  experiments   Experiment[]
-}
-
-model ModelVersion {
-  id            String     @id @default(cuid())
-  model         Model      @relation(fields: [modelId], references: [id])
-  modelId       String
-  project       Project?   @relation(fields: [projectId], references: [id])
-  projectId     String?
-  versionNumber Int
-  status        ModelVersionStatus
-  trainingConfig Json?
-  metrics       Json?
-  artifactLocation String?
-  datasetId     String?
-  dataset       Dataset?   @relation(fields: [datasetId], references: [id])
-  featureTableId String?
-  featureTable  FeatureTable? @relation(fields: [featureTableId], references: [id])
-  codeVersion   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  endpointBindings EndpointModelBinding[]
-  inferenceLogs  InferenceLog[]
-  experimentRuns ExperimentRun[]
-}
-
-model Endpoint {
-  id             String      @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  project        Project?    @relation(fields: [projectId], references: [id])
-  projectId      String?
-  workspace      Workspace?  @relation(fields: [workspaceId], references: [id])
-  workspaceId    String?
-  region         Region?     @relation(fields: [regionId], references: [id])
-  regionId       String?
-  name           String
-  type           EndpointType
-  publicSlug     String   @unique
-  trafficConfig  Json?
-  fallbackConfig Json?
-  strategy       String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  bindings       EndpointModelBinding[]
-  logs           InferenceLog[]
-  driftAlerts    DriftAlert[]
-  guardrails     LlmGuardrailPolicy[] @relation("EndpointGuardrails")
-}
-
-model EndpointModelBinding {
-  id              String        @id @default(cuid())
-  endpoint        Endpoint      @relation(fields: [endpointId], references: [id])
-  endpointId      String
-  modelVersion    ModelVersion  @relation(fields: [modelVersionId], references: [id])
-  modelVersionId  String
-  trafficPercentage Int
-  config          Json?
-}
-
-model InferenceLog {
-  id              String       @id @default(cuid())
-  endpoint        Endpoint     @relation(fields: [endpointId], references: [id])
-  endpointId      String
-  modelVersion    ModelVersion @relation(fields: [modelVersionId], references: [id])
-  modelVersionId  String
-  requestTimestamp DateTime @default(now())
-  latencyMs       Int
-  inputSummary    String
-  outputSummary   String
-  statusCode      Int
-  errorMessage    String?
-  userFeedbackLabel String?
-  createdAt       DateTime @default(now())
-  @@index([endpointId, createdAt])
-  @@index([modelVersionId, createdAt])
-}
-
-model DriftAlert {
-  id             String    @id @default(cuid())
-  endpoint       Endpoint  @relation(fields: [endpointId], references: [id])
-  endpointId     String
-  featureName    String
-  severity       String
-  detectedAt     DateTime @default(now())
-  driftMetricName String
-  driftMetricValue Float
-  resolvedAt     DateTime?
-}
-
-model LlmProviderConfig {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  region         Region?      @relation(fields: [regionId], references: [id])
-  regionId       String?
-  providerName   ProviderName
-  baseUrl        String?
-  apiKeyRef      String
-  defaultModelName String?
-  createdAt      DateTime @default(now())
-}
-
-model LlmAgent {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  project        Project?     @relation(fields: [projectId], references: [id])
-  projectId      String?
-  name           String
-  description    String?
-  systemPrompt   String
-  config         Json
-  knowledgeBase  KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id])
-  knowledgeBaseId String?
-  isInternal     Boolean @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  testSuites     AgentTestSuite[]
-  guardrails     LlmGuardrailPolicy[] @relation("AgentGuardrails")
-}
-
-model KnowledgeBase {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  project        Project?     @relation(fields: [projectId], references: [id])
-  projectId      String?
-  region         Region?      @relation(fields: [regionId], references: [id])
-  regionId       String?
-  name           String
-  vectorCollection VectorCollection @relation(fields: [vectorCollectionId], references: [id])
-  vectorCollectionId String
-  description    String?
-  createdAt      DateTime @default(now())
-  documents      Document[]
-  agents         LlmAgent[]
-}
-
-model Document {
-  id              String        @id @default(cuid())
-  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id])
-  knowledgeBaseId String
-  sourceType      DocumentSourceType
-  sourceLocation  String
-  metadata        Json
-  createdAt       DateTime @default(now())
-}
-
-model AuditLog {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  user           User?        @relation(fields: [userId], references: [id])
-  userId         String?
-  apiKey         ApiKey?      @relation(fields: [apiKeyId], references: [id])
-  apiKeyId       String?
-  actorType      String
-  action         String
-  resourceType   String
-  resourceId     String
-  metadata       Json?
-  ipAddress      String?
-  userAgent      String?
-  createdAt      DateTime @default(now())
-}
-
-model AgentTestSuite {
-  id           String     @id @default(cuid())
-  agent        LlmAgent   @relation(fields: [agentId], references: [id])
-  agentId      String
-  name         String
-  description  String?
-  createdAt    DateTime @default(now())
-  testCases    AgentTestCase[]
-  runs         AgentTestRun[]
-}
-
-model AgentTestCase {
-  id             String         @id @default(cuid())
-  testSuite      AgentTestSuite @relation(fields: [testSuiteId], references: [id])
-  testSuiteId    String
-  inputPrompt    String
-  expectedBehaviorDescription String?
-  expectedOutputPattern String?
-  createdAt      DateTime @default(now())
-  caseRuns       AgentTestCaseRun[]
-}
-
-model AgentTestRun {
-  id             String         @id @default(cuid())
-  testSuite      AgentTestSuite @relation(fields: [testSuiteId], references: [id])
-  testSuiteId    String
-  agentVersionSnapshot Json
-  status         String
-  startedAt      DateTime @default(now())
-  finishedAt     DateTime?
-  summaryMetrics Json?
-  caseRuns       AgentTestCaseRun[]
-}
-
-model AgentTestCaseRun {
-  id             String        @id @default(cuid())
-  testRun        AgentTestRun  @relation(fields: [testRunId], references: [id])
-  testRunId      String
-  testCase       AgentTestCase @relation(fields: [testCaseId], references: [id])
-  testCaseId     String
-  inputPrompt    String
-  actualOutput   String?
-  evaluationResult Json?
-  score          Float?
-  latencyMs      Int?
-}
-
-model LlmGuardrailPolicy {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  name           String
-  description    String?
-  policyType     String
-  config         Json
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  agents         LlmAgent[]   @relation("AgentGuardrails")
-  endpoints      Endpoint[]   @relation("EndpointGuardrails")
-}
-
-model Workflow {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
-  workspaceId    String?
-  project        Project?     @relation(fields: [projectId], references: [id])
-  projectId      String?
-  name           String
-  description    String?
-  createdAt      DateTime @default(now())
-  nodes          WorkflowNode[]
-  edges          WorkflowEdge[]
-  runs           WorkflowRun[]
-}
-
-model WorkflowNode {
-  id          String    @id @default(cuid())
-  workflow    Workflow  @relation(fields: [workflowId], references: [id])
-  workflowId  String
-  type        String
-  name        String
-  config      Json
+model Module {
+  id          String   @id @default(cuid())
+  course      Course   @relation(fields: [courseId], references: [id])
+  courseId    String
+  title       String
   orderIndex  Int
-  outgoing    WorkflowEdge[] @relation("EdgeFrom", references: [id])
-  incoming    WorkflowEdge[] @relation("EdgeTo", references: [id])
-  nodeRuns    WorkflowNodeRun[]
-}
-
-model WorkflowEdge {
-  id         String       @id @default(cuid())
-  workflow   Workflow     @relation(fields: [workflowId], references: [id])
-  workflowId String
-  fromNode   WorkflowNode @relation("EdgeFrom", fields: [fromNodeId], references: [id])
-  fromNodeId String
-  toNode     WorkflowNode @relation("EdgeTo", fields: [toNodeId], references: [id])
-  toNodeId   String
-}
-
-model WorkflowRun {
-  id         String         @id @default(cuid())
-  workflow   Workflow       @relation(fields: [workflowId], references: [id])
-  workflowId String
-  status     WorkflowStatus
-  attempts   Int       @default(0)
-  lastError  String?
-  errorCategory String?
-  startedAt  DateTime @default(now())
-  finishedAt DateTime?
-  nodeRuns   WorkflowNodeRun[]
-}
-
-model WorkflowNodeRun {
-  id            String        @id @default(cuid())
-  workflowRun   WorkflowRun   @relation(fields: [workflowRunId], references: [id])
-  workflowRunId String
-  node          WorkflowNode  @relation(fields: [nodeId], references: [id])
-  nodeId        String
-  status        WorkflowStatus
-  startedAt     DateTime @default(now())
-  finishedAt    DateTime?
-  logs          String?
-}
-
-model Experiment {
-  id          String     @id @default(cuid())
-  project     Project    @relation(fields: [projectId], references: [id])
-  projectId   String
-  name        String
   description String?
-  taskType    String
   createdAt   DateTime @default(now())
-  runs        ExperimentRun[]
-  models      Model[]
+  updatedAt   DateTime @updatedAt
+  lessons     Lesson[]
 }
 
-model ExperimentRun {
-  id             String      @id @default(cuid())
-  experiment     Experiment  @relation(fields: [experimentId], references: [id])
-  experimentId   String
-  modelVersion   ModelVersion? @relation(fields: [modelVersionId], references: [id])
-  modelVersionId String?
-  runConfig      Json?
-  status         String
-  metrics        Json?
-  artifactLocation String?
-  startedAt      DateTime @default(now())
-  finishedAt     DateTime?
+model Lesson {
+  id          String   @id @default(cuid())
+  module      Module   @relation(fields: [moduleId], references: [id])
+  moduleId    String
+  title       String
+  orderIndex  Int
+  contentType LessonContentType
+  contentBody String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  labs        Lab[]
+  challenges  Challenge[]
+  progresses  LessonProgress[]
 }
 
-model Template {
-  id             String       @id @default(cuid())
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  organizationId String?
-  type           String
-  name           String
-  description    String?
-  icon           String?
-  config         Json
-  createdAt      DateTime @default(now())
-}
-
-model Plugin {
-  id             String       @id @default(cuid())
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  organizationId String?
-  type           String
-  name           String
-  description    String?
-  icon           String?
-  configSchema   Json?
-  runtimeType    String
-  codeLocation   String?
-  inlineCode     String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-model Secret {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  name           String
-  provider       String
-  externalRef    String?
-  encryptedValue String?
-  key            String?
-  createdAt      DateTime @default(now())
-}
-
-model DataPolicy {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  name           String
-  description    String?
-  appliesTo      String
-  rules          Json
-  createdAt      DateTime @default(now())
-}
-
-model OrgPolicy {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  residency      Json
-  createdAt      DateTime @default(now())
-}
-
-model UsageMetric {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  project        Project?     @relation(fields: [projectId], references: [id])
-  projectId      String?
-  metricName     String
-  periodStart    DateTime
-  periodEnd      DateTime
-  value          Float
-  createdAt      DateTime @default(now())
-  @@unique([organizationId, metricName, periodStart, periodEnd])
-}
-
-model ProductEvent {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  userId         String?
-  user           User?        @relation(fields: [userId], references: [id])
-  eventName      String
-  properties     Json
-  createdAt      DateTime @default(now())
-  @@index([organizationId, eventName, createdAt])
-}
-
-model Comment {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
-  workspaceId    String?
-  projectId      String?
-  project        Project?     @relation(fields: [projectId], references: [id])
-  aiViewId       String?
-  aiBlockId      String?
-  resourceType   String
-  resourceId     String
-  authorId       String
-  author         User         @relation(fields: [authorId], references: [id])
-  body           String
-  parentCommentId String?
-  resolvedAt     DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  @@index([organizationId, resourceType, resourceId, createdAt])
-}
-
-model ShareLink {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  projectId      String?
-  project        Project?     @relation(fields: [projectId], references: [id])
-  resourceType   String
-  resourceId     String
-  token          String       @unique
-  expiresAt      DateTime?
-  accessLevel    AccessLevel
-  createdAt      DateTime @default(now())
-}
-
-model OnboardingState {
-  id             String       @id @default(cuid())
-  user           User         @relation(fields: [userId], references: [id])
-  userId         String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  hasSeenIntro   Boolean      @default(false)
-  completedFirstProject Boolean @default(false)
-  completedFirstEndpoint Boolean @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  @@unique([userId, organizationId])
-}
-
-model OrgCostProfile {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  costModelRefs  Json
-  discounts      Json?
-  createdAt      DateTime @default(now())
-}
-
-model CostModel {
+model LearningPath {
   id             String   @id @default(cuid())
-  name           String
-  type           String
-  config         Json
-  effectiveFrom  DateTime
-  effectiveTo    DateTime?
-  createdAt      DateTime @default(now())
-}
-
-model Budget {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  scope          BudgetScope
-  scopeId        String?
-  period         String
-  limitAmount    Float
-  currency       String
-  alertThresholds Json
-  createdAt      DateTime @default(now())
-  alerts         BudgetAlert[]
-}
-
-model BudgetAlert {
-  id         String   @id @default(cuid())
-  budget     Budget   @relation(fields: [budgetId], references: [id])
-  budgetId   String
-  threshold  Float
-  triggeredAt DateTime @default(now())
-}
-
-model ScalingPolicy {
-  id             String       @id @default(cuid())
-  organization   Organization? @relation(fields: [organizationId], references: [id])
   organizationId String?
-  targetType     String
-  targetId       String?
-  minInstances   Int
-  maxInstances   Int
-  strategy       String
-  config         Json
-  createdAt      DateTime @default(now())
-}
-
-model PlatformAlert {
-  id             String       @id @default(cuid())
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  organizationId String?
-  type           String
-  severity       String
-  resourceType   String
-  resourceId     String
-  status         String
-  detectedAt     DateTime @default(now())
-  metadata       Json?
-}
-
-model ControlPlaneSuggestion {
-  id             String       @id @default(cuid())
-  agentType      String
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  organizationId String?
-  projectId      String?
-  targetType     String
-  targetId       String?
-  suggestionText String
-  impactEstimate Json?
-  status         String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-model ChangeRequest {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
-  workspaceId    String?
-  submittedByUserId String
-  type           String
-  payload        Json
-  status         String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-model SlaConfig {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  targetType     String
-  targetId       String
-  objectives     Json
-  createdAt      DateTime @default(now())
-  violations     SlaViolation[]
-}
-
-model SlaViolation {
-  id             String     @id @default(cuid())
-  slaConfig      SlaConfig  @relation(fields: [slaConfigId], references: [id])
-  slaConfigId    String
-  occurredAt     DateTime @default(now())
-  details        Json
-  status         String
-}
-
-model Referral {
-  id             String   @id @default(cuid())
-  referrerOrg    Organization @relation("ReferralsFrom", fields: [referrerOrgId], references: [id])
-  referrerOrgId  String
-  refereeOrg     Organization? @relation("ReferralsTo", fields: [refereeOrgId], references: [id])
-  refereeOrgId   String?
-  referralCode   String   @unique
-  rewardStatus   String
-  createdAt      DateTime @default(now())
-}
-
-model AiView {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  workspace      Workspace    @relation(fields: [workspaceId], references: [id])
-  workspaceId    String
-  project        Project?     @relation(fields: [projectId], references: [id])
-  projectId      String?
-  name           String
-  slug           String
-  description    String?
-  layoutType     String
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  viewBlocks     AiViewBlock[]
-}
-
-model AiBlock {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  project        Project?     @relation(fields: [projectId], references: [id])
-  projectId      String?
-  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
-  workspaceId    String?
-  type           String
   title          String
-  config         Json
-  layout         Json
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  viewBlocks     AiViewBlock[]
-  notebookRuns   NotebookCellRun[]
-}
-
-model AiViewBlock {
-  id        String   @id @default(cuid())
-  aiView    AiView   @relation(fields: [aiViewId], references: [id])
-  aiViewId  String
-  aiBlock   AiBlock  @relation(fields: [aiBlockId], references: [id])
-  aiBlockId String
-  position  Json
-}
-
-model NotebookCellRun {
-  id               String   @id @default(cuid())
-  aiBlock          AiBlock  @relation(fields: [aiBlockId], references: [id])
-  aiBlockId        String
-  executedByUserId String
-  inputSnapshot    Json
-  outputSnapshot   Json?
-  status           String
-  startedAt        DateTime @default(now())
-  finishedAt       DateTime?
-}
-
-model AiApp {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  workspace      Workspace    @relation(fields: [workspaceId], references: [id])
-  workspaceId    String
-  project        Project?     @relation(fields: [projectId], references: [id])
-  projectId      String?
-  name           String
-  slug           String   @unique
   description    String?
-  isPublic       Boolean  @default(false)
-  config         Json
+  targetRole     String?
+  estimatedHours Float?
+  isPublished    Boolean @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  courses        LearningPathCourse[]
 }
 
-model AiAppTemplate {
+model LearningPathCourse {
+  id             String       @id @default(cuid())
+  learningPath   LearningPath @relation(fields: [learningPathId], references: [id])
+  learningPathId String
+  course         Course       @relation(fields: [courseId], references: [id])
+  courseId       String
+  orderIndex     Int
+}
+
+model SkillTag {
   id          String   @id @default(cuid())
   name        String
   description String?
-  icon        String?
   category    String
-  config      Json
-  visibility  String
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  courses     CourseSkillTag[]
 }
 
-model GalleryItem {
+model CourseSkillTag {
+  id        String   @id @default(cuid())
+  course    Course   @relation(fields: [courseId], references: [id])
+  courseId  String
+  skillTag  SkillTag @relation(fields: [skillTagId], references: [id])
+  skillTagId String
+}
+
+model Lab {
+  id             String   @id @default(cuid())
+  lesson         Lesson?  @relation(fields: [lessonId], references: [id])
+  lessonId       String?
+  organizationId String?
+  title          String
+  description    String?
+  difficulty     Difficulty
+  labType        LabType
+  config         Json
+  createdAt      DateTime @default(now())
+  sessions       LabSession[]
+}
+
+model LabEnvironmentTemplate {
+  id             String   @id @default(cuid())
+  organizationId String?
+  name           String
+  description    String?
+  config         Json
+  createdAt      DateTime @default(now())
+}
+
+model LabSession {
+  id             String   @id @default(cuid())
+  lab            Lab      @relation(fields: [labId], references: [id])
+  labId          String
+  userId         String
+  organizationId String
+  status         LabSessionStatus @default(NOT_STARTED)
+  environmentConfigSnapshot Json
+  startedAt      DateTime?
+  completedAt    DateTime?
+  expiresAt      DateTime?
+  resultSummary  Json?
+}
+
+model Challenge {
+  id             String   @id @default(cuid())
+  lesson         Lesson?  @relation(fields: [lessonId], references: [id])
+  lessonId       String?
+  course         Course?  @relation(fields: [courseId], references: [id])
+  courseId       String?
+  title          String
+  description    String?
+  challengeType  ChallengeType
+  config         Json
+  maxScore       Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  attempts       ChallengeAttempt[]
+}
+
+model ChallengeAttempt {
+  id             String   @id @default(cuid())
+  challenge      Challenge @relation(fields: [challengeId], references: [id])
+  challengeId    String
+  userId         String
+  labSessionId   String?
+  status         ChallengeStatus @default(IN_PROGRESS)
+  submission     Json?
+  score          Int?
+  feedback       Json?
+  submittedAt    DateTime?
+  gradedAt       DateTime?
+}
+
+model LessonProgress {
+  id             String   @id @default(cuid())
+  lesson         Lesson   @relation(fields: [lessonId], references: [id])
+  lessonId       String
+  userId         String
+  status         ProgressStatus @default(NOT_STARTED)
+  completedAt    DateTime?
+  lastAccessedAt DateTime?
+}
+
+model CourseEnrollment {
+  id             String   @id @default(cuid())
+  course         Course   @relation(fields: [courseId], references: [id])
+  courseId       String
+  userId         String
+  organizationId String
+  status         EnrollmentStatus @default(NOT_STARTED)
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+}
+
+model CourseProgress {
+  id             String   @id @default(cuid())
+  course         Course   @relation(fields: [courseId], references: [id])
+  courseId       String
+  userId         String
+  organizationId String
+  progressPercent Float @default(0)
+  lastUpdatedAt  DateTime @default(now())
+}
+
+model Certification {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  name           String
+  description    String?
+  level          CertificationLevel
+  requirements   Json
+  isPublished    Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  userCerts      UserCertification[]
+}
+
+model UserCertification {
+  id             String   @id @default(cuid())
+  certification  Certification @relation(fields: [certificationId], references: [id])
+  certificationId String
+  userId         String
+  organizationId String
+  status         String
+  earnedAt       DateTime?
+  expiresAt      DateTime?
+  evidence       Json?
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  iconUrl     String?
+  criteria    Json
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id             String   @id @default(cuid())
+  badge          Badge    @relation(fields: [badgeId], references: [id])
+  badgeId        String
+  userId         String
+  organizationId String
+  earnedAt       DateTime @default(now())
+}
+
+model LearningProgram {
   id               String   @id @default(cuid())
-  organization     Organization? @relation(fields: [organizationId], references: [id])
-  organizationId   String?
-  creatorUser      User     @relation("GalleryCreator", fields: [creatorUserId], references: [id])
-  creatorUserId    String
-  type             GalleryItemType
-  refType          String
-  refId            String
-  visibility       GalleryVisibility
-  title            String
-  shortDescription String?
-  longDescription  String?
-  tags             Json?
-  coverImageUrl    String?
-  stats            Json?
+  organizationId   String
+  name             String
+  description      String?
+  targetRoles      Json?
+  requiredLearningPathIds Json?
+  suggestedTimeline String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  ratings          GalleryRating[]
-  reviews          GalleryReview[]
-  installs         GalleryInstall[]
-  galleryItemTags  GalleryItemTag[]
+  enrollments      UserProgramEnrollment[]
 }
 
-model GalleryTag {
-  id          String @id @default(cuid())
-  name        String @unique
-  description String?
-  category    String?
-  createdAt   DateTime @default(now())
-  items       GalleryItemTag[]
+model UserProgramEnrollment {
+  id                String   @id @default(cuid())
+  learningProgram   LearningProgram @relation(fields: [learningProgramId], references: [id])
+  learningProgramId String
+  userId            String
+  status            ProgramStatus @default(NOT_STARTED)
+  startedAt         DateTime?
+  completedAt       DateTime?
 }
 
-model GalleryItemTag {
-  id            String      @id @default(cuid())
-  galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id])
-  galleryItemId String
-  tag           GalleryTag  @relation(fields: [tagId], references: [id])
-  tagId         String
-}
-
-model GalleryRating {
-  id            String      @id @default(cuid())
-  galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id])
-  galleryItemId String
-  user          User        @relation(fields: [userId], references: [id])
-  userId        String
-  rating        Int
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model GalleryReview {
-  id            String      @id @default(cuid())
-  galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id])
-  galleryItemId String
-  user          User        @relation(fields: [userId], references: [id])
-  userId        String
-  title         String
-  body          String
-  ratingSnapshot Int
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model GalleryInstall {
-  id            String      @id @default(cuid())
-  galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id])
-  galleryItemId String
-  organization  Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
-  installedByUserId String
-  installType   String
-  installedAt   DateTime @default(now())
-}
-
-model UserProfile {
-  userId       String  @id
-  user         User    @relation(fields: [userId], references: [id])
-  displayName  String?
-  bio          String?
-  avatarUrl    String?
-  links        Json?
-  stats        Json?
-}
-
-model UserFollow {
-  id             String @id @default(cuid())
-  followerUser   User   @relation("Follower", fields: [followerUserId], references: [id])
-  followerUserId String
-  followedUser   User   @relation("Followed", fields: [followedUserId], references: [id])
-  followedUserId String
-  createdAt      DateTime @default(now())
-}
-
-model ActivityEvent {
-  id             String   @id @default(cuid())
-  actorType      ActivityActorType
-  actorId        String
-  organizationId String?
-  type           ActivityType
-  payload        Json
-  createdAt      DateTime @default(now())
-}
-
-model Discussion {
+// Extend existing LlmAgent with tutor flag
+model LlmAgent {
   id             String       @id @default(cuid())
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  organizationId String?
-  galleryItem    GalleryItem?  @relation(fields: [galleryItemId], references: [id])
-  galleryItemId  String?
-  title          String
-  createdByUserId String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  comments       DiscussionComment[]
-}
-
-model DiscussionComment {
-  id             String      @id @default(cuid())
-  discussion     Discussion  @relation(fields: [discussionId], references: [id])
-  discussionId   String
-  user           User        @relation(fields: [userId], references: [id])
-  userId         String
-  body           String
-  parentCommentId String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-model Webhook {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
-  url            String
-  secret         String
-  eventTypes     Json
-  isActive       Boolean @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  deliveries     WebhookDelivery[]
+  // ... other fields from existing schema ...
+  isTutor        Boolean @default(false)
 }
 
-model WebhookDelivery {
-  id             String    @id @default(cuid())
-  webhook        Webhook   @relation(fields: [webhookId], references: [id])
-  webhookId      String
-  eventType      String
-  payload        Json
-  status         String
-  attempts       Int @default(0)
-  lastAttemptAt  DateTime?
-  errorMessage   String?
-  createdAt      DateTime @default(now())
-}
-
-model Partner {
+// Extend projects/workspaces for sandbox flag
+model Workspace {
   id             String   @id @default(cuid())
+  organizationId String
   name           String
-  contactUserId  String
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  partnerOrgs    PartnerOrganization[]
+  slug           String
+  isTrainingSandbox Boolean @default(false)
+  // ... other fields from existing schema ...
 }
 
-model PartnerOrganization {
+model Project {
   id             String   @id @default(cuid())
-  partner        Partner  @relation(fields: [partnerId], references: [id])
-  partnerId      String
-  organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
-  relationshipType String
-  createdAt      DateTime @default(now())
-}
-
-model AbuseReport {
-  id             String   @id @default(cuid())
-  reporterUserId String
-  subjectType    String
-  subjectId      String
-  reason         String
-  details        String?
-  status         String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-model ReputationScore {
-  id             String   @id @default(cuid())
-  subjectType    String
-  subjectId      String
-  score          Float
-  components     Json
-  updatedAt      DateTime @updatedAt @default(now())
+  workspaceId    String?
+  name           String
+  slug           String
+  isTrainingSandbox Boolean @default(false)
+  // ... other fields from existing schema ...
 }
