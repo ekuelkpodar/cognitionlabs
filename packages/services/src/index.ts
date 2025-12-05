@@ -26,3 +26,7 @@ export * from "./ai/views";
 export * from "./ai/notebook";
 export * from "./ai/apps";
 export * from "./ai/uiCopilot";
+export * from "./gallery/items";
+export * from "./community/follow";
+export * from "./devplatform/webhooks";
+export * from "./trust/moderation";

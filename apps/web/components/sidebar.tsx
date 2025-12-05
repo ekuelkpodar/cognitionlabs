@@ -64,7 +64,11 @@ const sections: { title: string; items: { name: string; href: string; icon: Reac
       { name: "Platform Health", href: "/platform-health", icon: <Activity className="w-4 h-4" /> },
       { name: "Usage & Cost", href: "/usage", icon: <Bolt className="w-4 h-4" /> },
       { name: "Cost Optimization", href: "/cost-optimization", icon: <Bolt className="w-4 h-4" /> },
-      { name: "Product Analytics", href: "/admin/analytics", icon: <Bolt className="w-4 h-4" /> }
+      { name: "Product Analytics", href: "/admin/analytics", icon: <Bolt className="w-4 h-4" /> },
+      { name: "Gallery", href: "/gallery", icon: <BookOpen className="w-4 h-4" /> },
+      { name: "Webhooks", href: "/webhooks", icon: <Workflow className="w-4 h-4" /> },
+      { name: "Moderation", href: "/moderation", icon: <Shield className="w-4 h-4" /> },
+      { name: "Partner Console", href: "/partner-console", icon: <Layers className="w-4 h-4" /> }
     ]
   },
   {

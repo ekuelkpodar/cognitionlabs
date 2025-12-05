@@ -7,89 +7,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum PlanTier {
-  FREE
-  PRO
-  ENTERPRISE
-}
+enum PlanTier { FREE PRO ENTERPRISE }
+enum MembershipRole { OWNER ADMIN MEMBER VIEWER CUSTOM }
+enum DataSourceType { FILE_UPLOAD POSTGRES SNOWFLAKE BIGQUERY S3 OTHER }
+enum ModelType { LLM CLASSIFICATION REGRESSION FORECASTING RANKING ANOMALY VISION }
+enum ModelVersionStatus { DRAFT TRAINING STAGING PRODUCTION FAILED }
+enum EndpointType { LLM_AGENT ML_MODEL }
+enum WorkflowStatus { PENDING RUNNING SUCCESS FAILED }
+enum DocumentSourceType { UPLOAD URL MANUAL }
+enum ProviderName { OPENAI ANTHROPIC CUSTOM_HTTP }
+enum AccessLevel { VIEW COMMENT }
+enum RegionProvider { AWS GCP AZURE OTHER }
+enum BudgetScope { ORG_WIDE PROJECT ENDPOINT AGENT }
 
-enum MembershipRole {
-  OWNER
-  ADMIN
-  MEMBER
-  VIEWER
-  CUSTOM
-}
-
-enum DataSourceType {
-  FILE_UPLOAD
-  POSTGRES
-  SNOWFLAKE
-  BIGQUERY
-  S3
-  OTHER
-}
-
-enum ModelType {
-  LLM
-  CLASSIFICATION
-  REGRESSION
-  FORECASTING
-  RANKING
-  ANOMALY
-  VISION
-}
-
-enum ModelVersionStatus {
-  DRAFT
-  TRAINING
-  STAGING
-  PRODUCTION
-  FAILED
-}
-
-enum EndpointType {
-  LLM_AGENT
-  ML_MODEL
-}
-
-enum WorkflowStatus {
-  PENDING
-  RUNNING
-  SUCCESS
-  FAILED
-}
-
-enum DocumentSourceType {
-  UPLOAD
-  URL
-  MANUAL
-}
-
-enum ProviderName {
-  OPENAI
-  ANTHROPIC
-  CUSTOM_HTTP
-}
-
-enum AccessLevel {
-  VIEW
-  COMMENT
-}
-
-enum RegionProvider {
-  AWS
-  GCP
-  AZURE
-  OTHER
-}
-
-enum BudgetScope {
-  ORG_WIDE
-  PROJECT
-  ENDPOINT
-  AGENT
-}
+enum GalleryVisibility { PRIVATE ORG PUBLIC UNLISTED }
+enum GalleryItemType { APP TEMPLATE WORKFLOW AGENT PLUGIN VIEW }
+enum ActivityActorType { USER ORG }
+enum ActivityType { PUBLISHED_ITEM UPDATED_ITEM INSTALLED_ITEM REACHED_MILESTONE NEW_TEMPLATE NEW_RELEASE }
 
 model User {
   id           String   @id @default(cuid())
@@ -103,6 +37,14 @@ model User {
   auditLogs    AuditLog[]
   onboardingStates OnboardingState[]
   comments     Comment[]
+  profiles     UserProfile?
+  follows      UserFollow[] @relation("Follower")
+  followers    UserFollow[] @relation("Followed")
+  galleryRatings GalleryRating[]
+  galleryReviews GalleryReview[]
+  galleryItems GalleryItem[] @relation("GalleryCreator")
+  activityEvents ActivityEvent[]
+  discussionComments DiscussionComment[]
 }
 
 model Organization {
@@ -111,6 +53,9 @@ model Organization {
   slug      String   @unique
   planTier  PlanTier @default(FREE)
   logRetentionDays Int @default(30)
+  brandingConfig Json?
+  subdomain String?
+  isWhiteLabelCustomer Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   projects      Project[]
@@ -150,6 +95,13 @@ model Organization {
   slaViolations SlaViolation[]
   referralsFrom Referral[] @relation("ReferralsFrom")
   referralsTo   Referral[] @relation("ReferralsTo")
+  galleryItems  GalleryItem[]
+  galleryInstalls GalleryInstall[]
+  webhooks      Webhook[]
+  partnerOrgs   PartnerOrganization[]
+  abuseReports  AbuseReport[]
+  discussions   Discussion[]
+  reputationScores ReputationScore[]
 }
 
 model Region {
@@ -171,7 +123,7 @@ model RolePolicy {
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
   name           String
-  capabilities   Json          // capability map { canManageProjects, canDeployModels, ... }
+  capabilities   Json
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   memberships    OrganizationMembership[]
@@ -212,7 +164,7 @@ model Plan {
   name             String
   description      String?
   basePriceCents   Int
-  billingPeriod    String   // MONTHLY, YEARLY
+  billingPeriod    String
   limits           Json
   createdAt        DateTime @default(now())
   addOns           AddOn[]
@@ -224,7 +176,7 @@ model AddOn {
   name             String
   description      String?
   pricePerUnitCents Int
-  unit             String   // TOKEN, ENDPOINT, WORKSPACE, PROJECT, USER
+  unit             String
   config           Json?
   createdAt        DateTime @default(now())
 }
@@ -244,6 +196,8 @@ model ApiKey {
   organizationId String
   name           String
   hashedKey      String
+  scopes         Json?
+  rateLimitOverrides Json?
   createdAt      DateTime @default(now())
   lastUsedAt     DateTime?
   auditLogs      AuditLog[]
@@ -265,6 +219,8 @@ model Workspace {
   knowledgeBases KnowledgeBase[]
   workflows      Workflow[]
   changeRequests ChangeRequest[]
+  aiViews        AiView[]
+  aiApps         AiApp[]
   @@unique([organizationId, slug])
 }
 
@@ -277,7 +233,7 @@ model Project {
   name           String
   slug           String   @unique
   description    String?
-  status         String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  status         String   @default("ACTIVE")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   datasets       Dataset[]
@@ -436,7 +392,7 @@ model Endpoint {
   publicSlug     String   @unique
   trafficConfig  Json?
   fallbackConfig Json?
-  strategy       String?    // SIMPLE, TRAFFIC_SPLIT, CANARY, BANDIT
+  strategy       String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   bindings       EndpointModelBinding[]
@@ -717,7 +673,7 @@ model Template {
   id             String       @id @default(cuid())
   organization   Organization? @relation(fields: [organizationId], references: [id])
   organizationId String?
-  type           String       // PROJECT, PIPELINE, AGENT, KNOWLEDGE_BASE
+  type           String
   name           String
   description    String?
   icon           String?
@@ -729,13 +685,13 @@ model Plugin {
   id             String       @id @default(cuid())
   organization   Organization? @relation(fields: [organizationId], references: [id])
   organizationId String?
-  type           String       // DATA_CONNECTOR, WORKFLOW_NODE, LLM_TOOL, EVALUATION_METRIC, DASHBOARD_WIDGET
+  type           String
   name           String
   description    String?
   icon           String?
   configSchema   Json?
-  runtimeType    String       // INLINE_SCRIPT, REMOTE_HTTP, NPM_PACKAGE_STUB
-  codeLocation   String?      // URL or package path
+  runtimeType    String
+  codeLocation   String?
   inlineCode     String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -746,7 +702,7 @@ model Secret {
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
   name           String
-  provider       String       // INTERNAL, AWS_SECRETS_MANAGER, HASHICORP_VAULT
+  provider       String
   externalRef    String?
   encryptedValue String?
   key            String?
@@ -759,7 +715,7 @@ model DataPolicy {
   organizationId String
   name           String
   description    String?
-  appliesTo      String       // DataSource, Dataset, KnowledgeBase
+  appliesTo      String
   rules          Json
   createdAt      DateTime @default(now())
 }
@@ -768,7 +724,7 @@ model OrgPolicy {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
-  residency      Json         // e.g., mustStayInRegion, allowedRegions
+  residency      Json
   createdAt      DateTime @default(now())
 }
 
@@ -860,7 +816,7 @@ model OrgCostProfile {
 model CostModel {
   id             String   @id @default(cuid())
   name           String
-  type           String   // LLM_TOKEN, ENDPOINT_REQUEST, STORAGE_GB_MONTH, JOB_HOUR, VECTOR_OP
+  type           String
   config         Json
   effectiveFrom  DateTime
   effectiveTo    DateTime?
@@ -873,7 +829,7 @@ model Budget {
   organizationId String
   scope          BudgetScope
   scopeId        String?
-  period         String   // MONTHLY, QUARTERLY
+  period         String
   limitAmount    Float
   currency       String
   alertThresholds Json
@@ -893,11 +849,11 @@ model ScalingPolicy {
   id             String       @id @default(cuid())
   organization   Organization? @relation(fields: [organizationId], references: [id])
   organizationId String?
-  targetType     String   // WORKER, ENDPOINT_POOL
+  targetType     String
   targetId       String?
   minInstances   Int
   maxInstances   Int
-  strategy       String   // QUEUE_DEPTH, CPU_UTIL, CUSTOM
+  strategy       String
   config         Json
   createdAt      DateTime @default(now())
 }
@@ -906,18 +862,18 @@ model PlatformAlert {
   id             String       @id @default(cuid())
   organization   Organization? @relation(fields: [organizationId], references: [id])
   organizationId String?
-  type           String   // STUCK_JOB, HIGH_FAILURE_RATE, QUEUE_BACKLOG
+  type           String
   severity       String
   resourceType   String
   resourceId     String
-  status         String   // OPEN, ACKED, RESOLVED
+  status         String
   detectedAt     DateTime @default(now())
   metadata       Json?
 }
 
 model ControlPlaneSuggestion {
   id             String       @id @default(cuid())
-  agentType      String       // OPS, QUALITY, GOVERNANCE
+  agentType      String
   organization   Organization? @relation(fields: [organizationId], references: [id])
   organizationId String?
   projectId      String?
@@ -925,7 +881,7 @@ model ControlPlaneSuggestion {
   targetId       String?
   suggestionText String
   impactEstimate Json?
-  status         String   // OPEN, APPLIED, DISMISSED
+  status         String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -937,9 +893,9 @@ model ChangeRequest {
   workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
   workspaceId    String?
   submittedByUserId String
-  type           String   // MODEL_PROMOTION, ENDPOINT_CONFIG_CHANGE, POLICY_CHANGE, GUARDRAIL_CHANGE, BUDGET_CHANGE, PLUGIN_INSTALL
+  type           String
   payload        Json
-  status         String   // PENDING, APPROVED, REJECTED, APPLIED
+  status         String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -948,9 +904,9 @@ model SlaConfig {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
-  targetType     String   // ENDPOINT, WORKSPACE
+  targetType     String
   targetId       String
-  objectives     Json      // uptime, latency, errorRate targets
+  objectives     Json
   createdAt      DateTime @default(now())
   violations     SlaViolation[]
 }
@@ -961,7 +917,7 @@ model SlaViolation {
   slaConfigId    String
   occurredAt     DateTime @default(now())
   details        Json
-  status         String   // OPEN, ACKED, RESOLVED
+  status         String
 }
 
 model Referral {
@@ -986,7 +942,7 @@ model AiView {
   name           String
   slug           String
   description    String?
-  layoutType     String       // GRID, CANVAS, NOTEBOOK
+  layoutType     String
   metadata       Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1001,7 +957,7 @@ model AiBlock {
   projectId      String?
   workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
   workspaceId    String?
-  type           String       // CHART, TABLE, METRIC, FORM, TEXT, NOTEBOOK_CELL, CHAT_WIDGET, MODEL_PANEL, AGENT_PANEL, IFRAME, CUSTOM_COMPONENT
+  type           String
   title          String
   config         Json
   layout         Json
@@ -1017,7 +973,7 @@ model AiViewBlock {
   aiViewId  String
   aiBlock   AiBlock  @relation(fields: [aiBlockId], references: [id])
   aiBlockId String
-  position  Json     // row, col, width, height, zIndex
+  position  Json
 }
 
 model NotebookCellRun {
@@ -1027,7 +983,7 @@ model NotebookCellRun {
   executedByUserId String
   inputSnapshot    Json
   outputSnapshot   Json?
-  status           String   // RUNNING, SUCCESS, FAILED
+  status           String
   startedAt        DateTime @default(now())
   finishedAt       DateTime?
 }
@@ -1054,9 +1010,206 @@ model AiAppTemplate {
   name        String
   description String?
   icon        String?
-  category    String   // SUPPORT, ANALYTICS, FORECASTING, QA, GOVERNANCE
-  config      Json     // predefined views/blocks/workflows bindings
-  visibility  String   // GLOBAL, ORG_LOCAL
+  category    String
+  config      Json
+  visibility  String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model GalleryItem {
+  id               String   @id @default(cuid())
+  organization     Organization? @relation(fields: [organizationId], references: [id])
+  organizationId   String?
+  creatorUser      User     @relation("GalleryCreator", fields: [creatorUserId], references: [id])
+  creatorUserId    String
+  type             GalleryItemType
+  refType          String
+  refId            String
+  visibility       GalleryVisibility
+  title            String
+  shortDescription String?
+  longDescription  String?
+  tags             Json?
+  coverImageUrl    String?
+  stats            Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  ratings          GalleryRating[]
+  reviews          GalleryReview[]
+  installs         GalleryInstall[]
+  galleryItemTags  GalleryItemTag[]
+}
+
+model GalleryTag {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String?
+  category    String?
+  createdAt   DateTime @default(now())
+  items       GalleryItemTag[]
+}
+
+model GalleryItemTag {
+  id            String      @id @default(cuid())
+  galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id])
+  galleryItemId String
+  tag           GalleryTag  @relation(fields: [tagId], references: [id])
+  tagId         String
+}
+
+model GalleryRating {
+  id            String      @id @default(cuid())
+  galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id])
+  galleryItemId String
+  user          User        @relation(fields: [userId], references: [id])
+  userId        String
+  rating        Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model GalleryReview {
+  id            String      @id @default(cuid())
+  galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id])
+  galleryItemId String
+  user          User        @relation(fields: [userId], references: [id])
+  userId        String
+  title         String
+  body          String
+  ratingSnapshot Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model GalleryInstall {
+  id            String      @id @default(cuid())
+  galleryItem   GalleryItem @relation(fields: [galleryItemId], references: [id])
+  galleryItemId String
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  installedByUserId String
+  installType   String
+  installedAt   DateTime @default(now())
+}
+
+model UserProfile {
+  userId       String  @id
+  user         User    @relation(fields: [userId], references: [id])
+  displayName  String?
+  bio          String?
+  avatarUrl    String?
+  links        Json?
+  stats        Json?
+}
+
+model UserFollow {
+  id             String @id @default(cuid())
+  followerUser   User   @relation("Follower", fields: [followerUserId], references: [id])
+  followerUserId String
+  followedUser   User   @relation("Followed", fields: [followedUserId], references: [id])
+  followedUserId String
+  createdAt      DateTime @default(now())
+}
+
+model ActivityEvent {
+  id             String   @id @default(cuid())
+  actorType      ActivityActorType
+  actorId        String
+  organizationId String?
+  type           ActivityType
+  payload        Json
+  createdAt      DateTime @default(now())
+}
+
+model Discussion {
+  id             String       @id @default(cuid())
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
+  galleryItem    GalleryItem?  @relation(fields: [galleryItemId], references: [id])
+  galleryItemId  String?
+  title          String
+  createdByUserId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  comments       DiscussionComment[]
+}
+
+model DiscussionComment {
+  id             String      @id @default(cuid())
+  discussion     Discussion  @relation(fields: [discussionId], references: [id])
+  discussionId   String
+  user           User        @relation(fields: [userId], references: [id])
+  userId         String
+  body           String
+  parentCommentId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Webhook {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  url            String
+  secret         String
+  eventTypes     Json
+  isActive       Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deliveries     WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id             String    @id @default(cuid())
+  webhook        Webhook   @relation(fields: [webhookId], references: [id])
+  webhookId      String
+  eventType      String
+  payload        Json
+  status         String
+  attempts       Int @default(0)
+  lastAttemptAt  DateTime?
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+}
+
+model Partner {
+  id             String   @id @default(cuid())
+  name           String
+  contactUserId  String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  partnerOrgs    PartnerOrganization[]
+}
+
+model PartnerOrganization {
+  id             String   @id @default(cuid())
+  partner        Partner  @relation(fields: [partnerId], references: [id])
+  partnerId      String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  relationshipType String
+  createdAt      DateTime @default(now())
+}
+
+model AbuseReport {
+  id             String   @id @default(cuid())
+  reporterUserId String
+  subjectType    String
+  subjectId      String
+  reason         String
+  details        String?
+  status         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ReputationScore {
+  id             String   @id @default(cuid())
+  subjectType    String
+  subjectId      String
+  score          Float
+  components     Json
+  updatedAt      DateTime @updatedAt @default(now())
 }
